@@ -45,6 +45,17 @@ function App() {
     setSaving(false)
   }
 
+  async function handleDelete(id) {
+    const { error } = await supabase.from('notes').delete().eq('id', id)
+
+    if (error) {
+      setError(error.message)
+    } else {
+      setError(null)
+      setNotes((prev) => prev.filter((note) => note.id !== id))
+    }
+  }
+
   function handleKeyDown(e) {
     if (e.key === 'Enter') {
       handleSave()
@@ -89,9 +100,18 @@ function App() {
                 key={note.id}
                 className="rounded-lg border border-slate-200 px-3 py-2"
               >
-                <p className="text-slate-800 whitespace-pre-wrap break-words">
-                  {note.content}
-                </p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-slate-800 whitespace-pre-wrap break-words">
+                    {note.content}
+                  </p>
+                  <button
+                    onClick={() => handleDelete(note.id)}
+                    aria-label="Delete note"
+                    className="shrink-0 text-xs font-medium text-red-500 hover:text-red-600 transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
                 <p className="mt-1 text-xs text-slate-400">
                   {new Date(note.created_at).toLocaleString()}
                 </p>
