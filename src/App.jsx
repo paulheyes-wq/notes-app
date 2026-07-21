@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from './supabaseClient'
 
 function App() {
@@ -9,6 +9,14 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const textareaRef = useRef(null)
+
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = ''
+    el.style.height = `${el.scrollHeight}px`
+  }, [content])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -96,7 +104,8 @@ function App() {
   }
 
   function handleKeyDown(e) {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault()
       handleSave()
     }
   }
@@ -157,22 +166,25 @@ function App() {
           </div>
         </div>
 
-        <div className="flex gap-2 mb-6">
-          <input
-            type="text"
+        <div className="mb-6">
+          <textarea
+            ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Write a note..."
-            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            placeholder="Write a note... (Ctrl+Enter to save)"
+            rows={3}
+            className="w-full resize-none overflow-hidden rounded-lg border border-slate-300 px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
           />
-          <button
-            onClick={handleSave}
-            disabled={saving || !content.trim()}
-            className="rounded-lg bg-emerald-500 px-4 py-2 font-medium text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </button>
+          <div className="mt-2 flex justify-end">
+            <button
+              onClick={handleSave}
+              disabled={saving || !content.trim()}
+              className="rounded-lg bg-emerald-500 px-4 py-2 font-medium text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
         </div>
 
         {error && (
