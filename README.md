@@ -17,7 +17,8 @@ If you are developing a production application, we recommend using TypeScript wi
 
 ## Supabase Auth setup (Google sign-in)
 
-Google sign-in is enabled via Supabase Auth. When deploying to a new environment or domain, two redirect URL settings need updating or the OAuth flow will fail:
+Google sign-in is enabled via Supabase Auth. When deploying to a new environment or domain, redirect URL settings need updating or the OAuth flow will fail:
 
-- **Supabase → Authentication → URL Configuration → Redirect URLs**: add every site URL the app is served from (e.g. `http://localhost:5173`, plus each deployed domain).
+- **Supabase → Authentication → URL Configuration → Site URL**: must be the app's permanent production domain, e.g. `https://notes-app-nu-azure.vercel.app`. Do **not** point this at a per-deployment preview URL (the random hash Vercel generates for each build, e.g. `notes-xxxxxxxxx-<scope>.vercel.app`) — those URLs are frozen snapshots of whatever was deployed at the time, so signing in would silently redirect back to a stale build instead of the current one.
+- **Supabase → Authentication → URL Configuration → Redirect URLs**: add every site URL the app is served from (e.g. `http://localhost:5173`, plus the permanent production domain above).
 - **Google Cloud Console → OAuth client → Authorized redirect URIs**: must include the Supabase callback URL, `https://<project-ref>.supabase.co/auth/v1/callback`.
