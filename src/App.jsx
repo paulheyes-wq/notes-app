@@ -46,6 +46,8 @@ function App() {
   }
 
   async function handleDelete(id) {
+    if (!window.confirm('Delete this note?')) return
+
     const { error } = await supabase.from('notes').delete().eq('id', id)
 
     if (error) {
