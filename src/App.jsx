@@ -48,6 +48,7 @@ function App() {
   const [editContent, setEditContent] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [toast, setToast] = useState(null)
   const textareaRef = useRef(null)
   const editTextareaRef = useRef(null)
@@ -85,6 +86,15 @@ function App() {
       fetchNotes(session.user.id)
     }
   }, [session])
+
+  useEffect(() => {
+    if (confirmDeleteId === null) return
+    function onKeyDown(e) {
+      if (e.key === 'Escape') setConfirmDeleteId(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [confirmDeleteId])
 
   function showToast(message) {
     setToast(message)
@@ -146,8 +156,8 @@ function App() {
     setSaving(false)
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm('Delete this note?')) return
+  async function handleDeleteConfirmed() {
+    const id = confirmDeleteId
 
     setDeletingId(id)
     const { error } = await supabase.from('notes').delete().eq('id', id)
@@ -160,6 +170,7 @@ function App() {
       showToast('Note deleted')
     }
     setDeletingId(null)
+    setConfirmDeleteId(null)
   }
 
   function handleEditStart(note) {
@@ -367,12 +378,11 @@ function App() {
                           <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(note.id)}
+                          onClick={() => setConfirmDeleteId(note.id)}
                           aria-label="Delete note"
-                          disabled={deletingId === note.id}
-                          className="text-xs font-medium text-red-500 hover:text-red-600 disabled:opacity-50 transition-colors"
+                          className="text-xs font-medium text-red-500 hover:text-red-600 transition-colors"
                         >
-                          {deletingId === note.id ? <Spinner className="h-3 w-3" /> : 'Delete'}
+                          Delete
                         </button>
                       </div>
                     </div>
@@ -386,6 +396,36 @@ function App() {
           </ul>
         )}
       </div>
+
+      {confirmDeleteId !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+          onClick={() => setConfirmDeleteId(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm text-slate-700">Delete this note? This can&apos;t be undone.</p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirmed}
+                disabled={deletingId === confirmDeleteId}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+              >
+                {deletingId === confirmDeleteId && <Spinner className="h-3.5 w-3.5" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div className="fixed inset-x-0 bottom-6 flex justify-center px-4">
