@@ -67,9 +67,10 @@ function App() {
     if (!trimmed) return
 
     setSaving(true)
+    const { data: { user } } = await supabase.auth.getUser()
     const { error } = await supabase
       .from('notes')
-      .insert({ content: trimmed, user_id: session.user.id })
+      .insert({ content: trimmed, user_id: user.id })
 
     if (error) {
       setError(error.message)
