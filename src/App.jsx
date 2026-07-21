@@ -137,6 +137,8 @@ function App() {
     )
   }
 
+  const displayName = session.user.user_metadata?.full_name || session.user.email
+
   return (
     <div className="min-h-screen bg-slate-100 flex items-start justify-center py-16 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-6">
@@ -144,7 +146,7 @@ function App() {
           <h1 className="text-2xl font-semibold text-slate-800">Notes</h1>
           <div className="text-right">
             <p className="text-xs text-slate-500 truncate max-w-[180px]">
-              {session.user.user_metadata?.full_name || session.user.email}
+              {displayName}
             </p>
             <button
               onClick={handleSignOut}
@@ -201,7 +203,7 @@ function App() {
                   </button>
                 </div>
                 <p className="mt-1 text-xs text-slate-400">
-                  {new Date(note.created_at).toLocaleString()}
+                  {displayName} &middot; {new Date(note.created_at).toLocaleString()}
                 </p>
               </li>
             ))}
