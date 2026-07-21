@@ -14,3 +14,10 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+## Supabase Auth setup (Google sign-in)
+
+Google sign-in is enabled via Supabase Auth. When deploying to a new environment or domain, two redirect URL settings need updating or the OAuth flow will fail:
+
+- **Supabase → Authentication → URL Configuration → Redirect URLs**: add every site URL the app is served from (e.g. `http://localhost:5173`, plus each deployed domain).
+- **Google Cloud Console → OAuth client → Authorized redirect URIs**: must include the Supabase callback URL, `https://<project-ref>.supabase.co/auth/v1/callback`.
