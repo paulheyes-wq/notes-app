@@ -6,21 +6,29 @@ import rehypeSanitize from 'rehype-sanitize'
 import { supabase } from './supabaseClient'
 
 const markdownComponents = {
-  h1: (props) => <h1 className="mb-1 mt-2 text-lg font-semibold text-slate-800 first:mt-0" {...props} />,
-  h2: (props) => <h2 className="mb-1 mt-2 text-base font-semibold text-slate-800 first:mt-0" {...props} />,
-  h3: (props) => <h3 className="mb-1 mt-2 text-sm font-semibold text-slate-800 first:mt-0" {...props} />,
-  p: (props) => <p className="mb-1 text-slate-800 last:mb-0" {...props} />,
+  h1: (props) => <h1 className="mb-1 mt-2 text-lg font-semibold text-slate-800 first:mt-0 dark:text-slate-100" {...props} />,
+  h2: (props) => <h2 className="mb-1 mt-2 text-base font-semibold text-slate-800 first:mt-0 dark:text-slate-100" {...props} />,
+  h3: (props) => <h3 className="mb-1 mt-2 text-sm font-semibold text-slate-800 first:mt-0 dark:text-slate-100" {...props} />,
+  p: (props) => <p className="mb-1 text-slate-800 last:mb-0 dark:text-slate-100" {...props} />,
   ul: (props) => <ul className="mb-1 list-disc space-y-0.5 pl-5 last:mb-0" {...props} />,
   ol: (props) => <ol className="mb-1 list-decimal space-y-0.5 pl-5 last:mb-0" {...props} />,
-  li: (props) => <li className="text-slate-800" {...props} />,
+  li: (props) => <li className="text-slate-800 dark:text-slate-100" {...props} />,
   blockquote: (props) => (
-    <blockquote className="mb-1 border-l-2 border-slate-300 pl-3 italic text-slate-500 last:mb-0" {...props} />
+    <blockquote
+      className="mb-1 border-l-2 border-slate-300 pl-3 italic text-slate-500 last:mb-0 dark:border-slate-600 dark:text-slate-400"
+      {...props}
+    />
   ),
-  strong: (props) => <strong className="font-semibold text-slate-900" {...props} />,
+  strong: (props) => <strong className="font-semibold text-slate-900 dark:text-white" {...props} />,
   em: (props) => <em className="italic" {...props} />,
-  code: (props) => <code className="rounded bg-slate-200 px-1 py-0.5 text-xs" {...props} />,
+  code: (props) => <code className="rounded bg-slate-200 px-1 py-0.5 text-xs dark:bg-slate-700 dark:text-slate-100" {...props} />,
   a: (props) => (
-    <a className="text-emerald-600 underline hover:text-emerald-700" target="_blank" rel="noopener noreferrer" {...props} />
+    <a
+      className="text-emerald-600 underline hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+      target="_blank"
+      rel="noopener noreferrer"
+      {...props}
+    />
   ),
 }
 
@@ -49,24 +57,24 @@ function MarkdownSplitEditor({ value, onChange, onKeyDown, placeholder, rows, te
         placeholder={placeholder}
         rows={rows}
         autoFocus={autoFocus}
-        className={`w-full min-h-[4.5rem] resize-none overflow-hidden rounded-lg border border-slate-300 px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 ${textareaClassName}`}
+        className={`w-full min-h-[4.5rem] resize-none overflow-hidden rounded-lg border border-slate-300 px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500 ${textareaClassName}`}
       />
-      <div className="min-h-[4.5rem] overflow-auto rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-        {value.trim() ? <Markdown>{value}</Markdown> : <p className="text-sm text-slate-400">Preview</p>}
+      <div className="min-h-[4.5rem] overflow-auto rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
+        {value.trim() ? <Markdown>{value}</Markdown> : <p className="text-sm text-slate-400 dark:text-slate-500">Preview</p>}
       </div>
     </div>
   )
 }
 
 const TAG_COLORS = [
-  'bg-emerald-100 text-emerald-700',
-  'bg-blue-100 text-blue-700',
-  'bg-amber-100 text-amber-700',
-  'bg-rose-100 text-rose-700',
-  'bg-purple-100 text-purple-700',
-  'bg-cyan-100 text-cyan-700',
-  'bg-pink-100 text-pink-700',
-  'bg-lime-100 text-lime-700',
+  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+  'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+  'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+  'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
+  'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300',
+  'bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-300',
 ]
 
 function tagColorClasses(tag) {
@@ -100,7 +108,7 @@ function TagInput({ tags, onChange, placeholder = 'Add a tag...' }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-300 px-2 py-1.5 focus-within:ring-2 focus-within:ring-emerald-400">
+    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-300 px-2 py-1.5 focus-within:ring-2 focus-within:ring-emerald-400 dark:border-slate-600">
       {tags.map((tag) => (
         <span
           key={tag}
@@ -124,7 +132,7 @@ function TagInput({ tags, onChange, placeholder = 'Add a tag...' }) {
         onKeyDown={handleKeyDown}
         onBlur={() => addTag(inputValue)}
         placeholder={tags.length === 0 ? placeholder : ''}
-        className="min-w-[6rem] flex-1 border-none p-0.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-0"
+        className="min-w-[6rem] flex-1 border-none bg-transparent p-0.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-0 dark:text-slate-100 dark:placeholder-slate-500"
       />
     </div>
   )
@@ -173,17 +181,17 @@ function ImageAttachment({ imageUrl, uploading, onSelectFile, onRemove, inputId 
     <div className="mt-3">
       {imageUrl ? (
         <div className="relative inline-block">
-          <img src={imageUrl} alt="" className="max-h-32 rounded-lg border border-slate-200" />
+          <img src={imageUrl} alt="" className="max-h-32 rounded-lg border border-slate-200 dark:border-slate-700" />
           {uploading && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/60">
-              <Spinner className="h-5 w-5 text-slate-500" />
+            <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/60 dark:bg-slate-900/60">
+              <Spinner className="h-5 w-5 text-slate-500 dark:text-slate-300" />
             </div>
           )}
           <button
             type="button"
             onClick={onRemove}
             aria-label="Remove image"
-            className="absolute -right-2 -top-2 rounded-full bg-slate-800 p-1 text-xs text-white hover:bg-slate-900"
+            className="absolute -right-2 -top-2 rounded-full bg-slate-800 p-1 text-xs text-white hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600"
           >
             &times;
           </button>
@@ -191,7 +199,7 @@ function ImageAttachment({ imageUrl, uploading, onSelectFile, onRemove, inputId 
       ) : (
         <label
           htmlFor={inputId}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
         >
           {uploading && <Spinner className="h-4 w-4" />}
           {uploading ? 'Uploading...' : 'Add image'}
@@ -223,7 +231,7 @@ function ShareIcon({ className = 'h-4 w-4' }) {
 
 function EmptyNotesIcon() {
   return (
-    <svg className="mx-auto h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+    <svg className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -234,7 +242,50 @@ function EmptyNotesIcon() {
   )
 }
 
+function SunIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 3v1.5m0 15V21m9-9h-1.5M4.5 12H3m15.364 6.364-1.06-1.06M6.696 6.696 5.636 5.636m12.728 0-1.06 1.06M6.696 17.304l-1.06 1.06M16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0Z"
+      />
+    </svg>
+  )
+}
+
+function MoonIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21.752 15.002A9.72 9.72 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998Z"
+      />
+    </svg>
+  )
+}
+
+function ThemeToggle({ theme, onToggle }) {
+  return (
+    <button
+      onClick={onToggle}
+      aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      className="fixed right-4 top-4 z-40 rounded-full border border-slate-200 bg-white p-2 text-slate-500 shadow-md hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors"
+    >
+      {theme === 'dark' ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
+    </button>
+  )
+}
+
+function getInitialTheme() {
+  const stored = localStorage.getItem('theme')
+  if (stored === 'light' || stored === 'dark') return stored
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
 function App() {
+  const [theme, setTheme] = useState(getInitialTheme)
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [notes, setNotes] = useState([])
@@ -266,6 +317,11 @@ function App() {
   const textareaRef = useRef(null)
   const editTextareaRef = useRef(null)
   const toastTimeoutRef = useRef(null)
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+    localStorage.setItem('theme', theme)
+  }, [theme])
 
   useEffect(() => {
     const el = textareaRef.current
@@ -317,6 +373,10 @@ function App() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [shareModalNote])
+
+  function toggleTheme() {
+    setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
+  }
 
   function showToast(message) {
     setToast(message)
@@ -585,26 +645,28 @@ function App() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-start justify-center py-16 px-4">
-        <p className="text-sm text-slate-400">Loading...</p>
+      <div className="min-h-screen bg-slate-100 flex items-start justify-center py-16 px-4 dark:bg-slate-900">
+        <ThemeToggle theme={theme} onToggle={toggleTheme} />
+        <p className="text-sm text-slate-400 dark:text-slate-500">Loading...</p>
       </div>
     )
   }
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-start justify-center py-16 px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-6 text-center">
-          <h1 className="text-2xl font-semibold text-slate-800 mb-6">Notes</h1>
-          <p className="text-sm text-slate-500 mb-6">Sign in to view and create your notes.</p>
+      <div className="min-h-screen bg-slate-100 flex items-start justify-center py-16 px-4 dark:bg-slate-900">
+        <ThemeToggle theme={theme} onToggle={toggleTheme} />
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-6 text-center dark:bg-slate-800">
+          <h1 className="text-2xl font-semibold text-slate-800 mb-6 dark:text-slate-100">Notes</h1>
+          <p className="text-sm text-slate-500 mb-6 dark:text-slate-400">Sign in to view and create your notes.</p>
 
           {error && (
-            <p className="mb-4 text-sm text-red-600">{error}</p>
+            <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>
           )}
 
           <button
             onClick={handleSignInWithGoogle}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 transition-colors dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.82Z" />
@@ -647,17 +709,18 @@ function App() {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-start justify-center py-16 px-4">
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-md p-6">
+    <div className="min-h-screen bg-slate-100 flex items-start justify-center py-16 px-4 dark:bg-slate-900">
+      <ThemeToggle theme={theme} onToggle={toggleTheme} />
+      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-md p-6 dark:bg-slate-800">
         <div className="flex items-start justify-between gap-3 mb-6">
-          <h1 className="text-2xl font-semibold text-slate-800">Notes</h1>
+          <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Notes</h1>
           <div className="text-right">
-            <p className="text-xs text-slate-500 truncate max-w-[180px]">
+            <p className="text-xs text-slate-500 truncate max-w-[180px] dark:text-slate-400">
               {displayName}
             </p>
             <button
               onClick={handleSignOut}
-              className="text-xs font-medium text-slate-400 hover:text-slate-600 transition-colors"
+              className="text-xs font-medium text-slate-400 hover:text-slate-600 transition-colors dark:text-slate-500 dark:hover:text-slate-300"
             >
               Sign out
             </button>
@@ -696,7 +759,7 @@ function App() {
         </div>
 
         {error && (
-          <p className="mb-4 text-sm text-red-600">{error}</p>
+          <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>
         )}
 
         {!loading && myNotes.length > 0 && (
@@ -706,12 +769,12 @@ function App() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search notes..."
-              className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
             />
             <select
               value={sortOption}
               onChange={(e) => setSortOption(e.target.value)}
-              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300"
             >
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -739,17 +802,17 @@ function App() {
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-6 text-sm text-slate-400">
+          <div className="flex items-center justify-center gap-2 py-6 text-sm text-slate-400 dark:text-slate-500">
             <Spinner className="h-4 w-4" />
             Loading notes...
           </div>
         ) : myNotes.length === 0 ? (
           <div className="py-8 text-center">
             <EmptyNotesIcon />
-            <p className="mt-3 text-sm text-slate-400">No notes yet — write your first one above.</p>
+            <p className="mt-3 text-sm text-slate-400 dark:text-slate-500">No notes yet — write your first one above.</p>
           </div>
         ) : filteredNotes.length === 0 ? (
-          <p className="py-6 text-center text-sm text-slate-400">
+          <p className="py-6 text-center text-sm text-slate-400 dark:text-slate-500">
             {hasActiveFilter ? 'No notes match your filters.' : 'No notes yet.'}
           </p>
         ) : (
@@ -757,7 +820,7 @@ function App() {
             {orderedNotes.map((note) => (
               <li
                 key={note.id}
-                className="rounded-lg border border-slate-200 px-3 py-2"
+                className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700"
               >
                 {editingId === note.id ? (
                   <div>
@@ -783,7 +846,7 @@ function App() {
                     <div className="mt-2 flex justify-end gap-3">
                       <button
                         onClick={handleEditCancel}
-                        className="text-xs font-medium text-slate-400 hover:text-slate-600 transition-colors"
+                        className="text-xs font-medium text-slate-400 hover:text-slate-600 transition-colors dark:text-slate-500 dark:hover:text-slate-300"
                       >
                         Cancel
                       </button>
@@ -819,7 +882,7 @@ function App() {
                             <img
                               src={note.image_url}
                               alt=""
-                              className="max-h-[200px] rounded-lg border border-slate-200"
+                              className="max-h-[200px] rounded-lg border border-slate-200 dark:border-slate-700"
                             />
                           </a>
                         )}
@@ -828,7 +891,7 @@ function App() {
                         <button
                           onClick={() => handleShareOpen(note)}
                           aria-label="Share note"
-                          className="text-slate-400 hover:text-slate-600 transition-colors"
+                          className="text-slate-400 hover:text-slate-600 transition-colors dark:text-slate-500 dark:hover:text-slate-300"
                         >
                           <ShareIcon className="h-4 w-4" />
                         </button>
@@ -837,7 +900,9 @@ function App() {
                           disabled={pinningId === note.id}
                           aria-label={note.pinned ? 'Unpin note' : 'Pin note'}
                           className={`disabled:opacity-50 transition-colors ${
-                            note.pinned ? 'text-amber-500 hover:text-amber-600' : 'text-slate-400 hover:text-slate-600'
+                            note.pinned
+                              ? 'text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300'
+                              : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
                           }`}
                         >
                           {pinningId === note.id ? <Spinner className="h-4 w-4" /> : <PinIcon className="h-4 w-4" filled={note.pinned} />}
@@ -845,24 +910,24 @@ function App() {
                         <button
                           onClick={() => handleEditStart(note)}
                           aria-label="Edit note"
-                          className="text-slate-400 hover:text-slate-600 transition-colors"
+                          className="text-slate-400 hover:text-slate-600 transition-colors dark:text-slate-500 dark:hover:text-slate-300"
                         >
                           <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setConfirmDeleteId(note.id)}
                           aria-label="Delete note"
-                          className="text-xs font-medium text-red-500 hover:text-red-600 transition-colors"
+                          className="text-xs font-medium text-red-500 hover:text-red-600 transition-colors dark:text-red-400 dark:hover:text-red-300"
                         >
                           Delete
                         </button>
                       </div>
                     </div>
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                       {displayName} &middot; {new Date(note.created_at).toLocaleString()}
                     </p>
                     {note.note_shares?.length > 0 && (
-                      <p className="mt-1 text-xs text-slate-400">
+                      <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                         Shared with: {note.note_shares.map((s) => s.shared_with_email).join(', ')}
                       </p>
                     )}
@@ -874,11 +939,14 @@ function App() {
         )}
 
         {sharedNotes.length > 0 && (
-          <div className="mt-6 border-t border-slate-200 pt-4">
-            <h2 className="mb-3 text-sm font-semibold text-slate-600">Shared with me</h2>
+          <div className="mt-6 border-t border-slate-200 pt-4 dark:border-slate-700">
+            <h2 className="mb-3 text-sm font-semibold text-slate-600 dark:text-slate-400">Shared with me</h2>
             <ul className="space-y-3">
               {sharedNotes.map((note) => (
-                <li key={note.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <li
+                  key={note.id}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40"
+                >
                   <Markdown>{note.content}</Markdown>
                   {note.tags?.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-1">
@@ -894,10 +962,16 @@ function App() {
                   )}
                   {note.image_url && (
                     <a href={note.image_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block">
-                      <img src={note.image_url} alt="" className="max-h-[200px] rounded-lg border border-slate-200" />
+                      <img
+                        src={note.image_url}
+                        alt=""
+                        className="max-h-[200px] rounded-lg border border-slate-200 dark:border-slate-700"
+                      />
                     </a>
                   )}
-                  <p className="mt-1 text-xs text-slate-400">{new Date(note.created_at).toLocaleString()}</p>
+                  <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                    {new Date(note.created_at).toLocaleString()}
+                  </p>
                 </li>
               ))}
             </ul>
@@ -911,14 +985,14 @@ function App() {
           onClick={() => setConfirmDeleteId(null)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-lg"
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-lg dark:bg-slate-800"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-sm text-slate-700">Delete this note? This can&apos;t be undone.</p>
+            <p className="text-sm text-slate-700 dark:text-slate-200">Delete this note? This can&apos;t be undone.</p>
             <div className="mt-5 flex justify-end gap-3">
               <button
                 onClick={() => setConfirmDeleteId(null)}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors dark:text-slate-400 dark:hover:text-slate-200"
               >
                 Cancel
               </button>
@@ -941,17 +1015,17 @@ function App() {
           onClick={handleShareClose}
         >
           <div
-            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-lg"
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-lg dark:bg-slate-800"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="mb-3 text-sm font-semibold text-slate-800">Share note</h2>
+            <h2 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-100">Share note</h2>
 
             {shareModalNote.note_shares?.length > 0 && (
               <div className="mb-4 flex flex-wrap gap-1.5">
                 {shareModalNote.note_shares.map((share) => (
                   <span
                     key={share.id}
-                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
+                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300"
                   >
                     {share.shared_with_email}
                     <button
@@ -975,7 +1049,7 @@ function App() {
                 onChange={(e) => setShareEmail(e.target.value)}
                 onKeyDown={handleShareKeyDown}
                 placeholder="Enter email address"
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
               />
               <button
                 onClick={handleShareSubmit}
@@ -987,12 +1061,12 @@ function App() {
               </button>
             </div>
 
-            {shareError && <p className="mt-2 text-sm text-red-600">{shareError}</p>}
+            {shareError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{shareError}</p>}
 
             <div className="mt-5 flex justify-end">
               <button
                 onClick={handleShareClose}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors dark:text-slate-400 dark:hover:text-slate-200"
               >
                 Close
               </button>
@@ -1003,7 +1077,7 @@ function App() {
 
       {toast && (
         <div className="fixed inset-x-0 bottom-6 flex justify-center px-4">
-          <div className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-white shadow-lg">
+          <div className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-white shadow-lg dark:bg-slate-700">
             {toast}
           </div>
         </div>
