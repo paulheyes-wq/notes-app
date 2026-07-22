@@ -209,6 +209,18 @@ function ImageAttachment({ imageUrl, uploading, onSelectFile, onRemove, inputId 
   )
 }
 
+function ShareIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.933 2.185 2.25 2.25 0 00-3.933-2.185zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"
+      />
+    </svg>
+  )
+}
+
 function EmptyNotesIcon() {
   return (
     <svg className="mx-auto h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
@@ -245,6 +257,11 @@ function App() {
   const [editSaving, setEditSaving] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [shareModalNote, setShareModalNote] = useState(null)
+  const [shareEmail, setShareEmail] = useState('')
+  const [sharing, setSharing] = useState(false)
+  const [shareError, setShareError] = useState(null)
+  const [revokingShareId, setRevokingShareId] = useState(null)
   const [toast, setToast] = useState(null)
   const textareaRef = useRef(null)
   const editTextareaRef = useRef(null)
@@ -279,7 +296,7 @@ function App() {
 
   useEffect(() => {
     if (session) {
-      fetchNotes(session.user.id)
+      fetchNotes()
     }
   }, [session])
 
@@ -291,6 +308,15 @@ function App() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [confirmDeleteId])
+
+  useEffect(() => {
+    if (!shareModalNote) return
+    function onKeyDown(e) {
+      if (e.key === 'Escape') handleShareClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [shareModalNote])
 
   function showToast(message) {
     setToast(message)
@@ -353,12 +379,11 @@ function App() {
     }
   }
 
-  async function fetchNotes(userId) {
+  async function fetchNotes() {
     setLoading(true)
     const { data, error } = await supabase
       .from('notes')
-      .select('id, content, tags, pinned, image_url, created_at')
-      .eq('user_id', userId)
+      .select('id, content, tags, pinned, image_url, created_at, user_id, note_shares(id, shared_with_email)')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -387,7 +412,7 @@ function App() {
       setTags([])
       setImageUrl(null)
       setError(null)
-      await fetchNotes(session.user.id)
+      await fetchNotes()
       showToast('Note saved')
     }
     setSaving(false)
@@ -421,6 +446,85 @@ function App() {
       setNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, pinned: !n.pinned } : n)))
     }
     setPinningId(null)
+  }
+
+  function handleShareOpen(note) {
+    setShareModalNote(note)
+    setShareEmail('')
+    setShareError(null)
+  }
+
+  function handleShareClose() {
+    setShareModalNote(null)
+    setShareEmail('')
+    setShareError(null)
+  }
+
+  async function handleShareSubmit() {
+    const email = shareEmail.trim().toLowerCase()
+    if (!email) return
+
+    setSharing(true)
+    setShareError(null)
+
+    const { data: userId, error: lookupError } = await supabase.rpc('find_user_id_by_email', {
+      lookup_email: email,
+    })
+
+    if (lookupError) {
+      setShareError(lookupError.message)
+      setSharing(false)
+      return
+    }
+
+    if (!userId) {
+      setShareError('No user found with that email.')
+      setSharing(false)
+      return
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('note_shares')
+      .insert({ note_id: shareModalNote.id, shared_with_email: email, shared_with_user_id: userId })
+      .select('id, shared_with_email')
+      .single()
+
+    if (insertError) {
+      setShareError(insertError.code === '23505' ? 'Already shared with this email.' : insertError.message)
+    } else {
+      setNotes((prev) =>
+        prev.map((n) => (n.id === shareModalNote.id ? { ...n, note_shares: [...n.note_shares, inserted] } : n))
+      )
+      setShareModalNote((prev) => ({ ...prev, note_shares: [...prev.note_shares, inserted] }))
+      setShareEmail('')
+      showToast('Note shared')
+    }
+    setSharing(false)
+  }
+
+  async function handleRevokeShare(shareId, noteId) {
+    setRevokingShareId(shareId)
+    const { error: revokeError } = await supabase.from('note_shares').delete().eq('id', shareId)
+
+    if (revokeError) {
+      setShareError(revokeError.message)
+    } else {
+      setNotes((prev) =>
+        prev.map((n) => (n.id === noteId ? { ...n, note_shares: n.note_shares.filter((s) => s.id !== shareId) } : n))
+      )
+      setShareModalNote((prev) =>
+        prev ? { ...prev, note_shares: prev.note_shares.filter((s) => s.id !== shareId) } : prev
+      )
+      showToast('Share revoked')
+    }
+    setRevokingShareId(null)
+  }
+
+  function handleShareKeyDown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleShareSubmit()
+    }
   }
 
   function handleEditStart(note) {
@@ -516,9 +620,11 @@ function App() {
   }
 
   const displayName = session.user.user_metadata?.full_name || session.user.email
+  const myNotes = notes.filter((note) => note.user_id === session.user.id)
+  const sharedNotes = notes.filter((note) => note.user_id !== session.user.id)
   const trimmedQuery = searchQuery.trim().toLowerCase()
-  const allTags = [...new Set(notes.flatMap((note) => note.tags || []))].sort()
-  const filteredNotes = notes
+  const allTags = [...new Set(myNotes.flatMap((note) => note.tags || []))].sort()
+  const filteredNotes = myNotes
     .filter((note) => !trimmedQuery || note.content.toLowerCase().includes(trimmedQuery))
     .filter((note) => !selectedTag || (note.tags || []).includes(selectedTag))
   const hasActiveFilter = Boolean(trimmedQuery || selectedTag)
@@ -593,7 +699,7 @@ function App() {
           <p className="mb-4 text-sm text-red-600">{error}</p>
         )}
 
-        {!loading && notes.length > 0 && (
+        {!loading && myNotes.length > 0 && (
           <div className="mb-4 flex gap-2">
             <input
               type="text"
@@ -637,7 +743,7 @@ function App() {
             <Spinner className="h-4 w-4" />
             Loading notes...
           </div>
-        ) : notes.length === 0 ? (
+        ) : myNotes.length === 0 ? (
           <div className="py-8 text-center">
             <EmptyNotesIcon />
             <p className="mt-3 text-sm text-slate-400">No notes yet — write your first one above.</p>
@@ -720,6 +826,13 @@ function App() {
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <button
+                          onClick={() => handleShareOpen(note)}
+                          aria-label="Share note"
+                          className="text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          <ShareIcon className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => handleTogglePin(note)}
                           disabled={pinningId === note.id}
                           aria-label={note.pinned ? 'Unpin note' : 'Pin note'}
@@ -748,11 +861,47 @@ function App() {
                     <p className="mt-1 text-xs text-slate-400">
                       {displayName} &middot; {new Date(note.created_at).toLocaleString()}
                     </p>
+                    {note.note_shares?.length > 0 && (
+                      <p className="mt-1 text-xs text-slate-400">
+                        Shared with: {note.note_shares.map((s) => s.shared_with_email).join(', ')}
+                      </p>
+                    )}
                   </>
                 )}
               </li>
             ))}
           </ul>
+        )}
+
+        {sharedNotes.length > 0 && (
+          <div className="mt-6 border-t border-slate-200 pt-4">
+            <h2 className="mb-3 text-sm font-semibold text-slate-600">Shared with me</h2>
+            <ul className="space-y-3">
+              {sharedNotes.map((note) => (
+                <li key={note.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <Markdown>{note.content}</Markdown>
+                  {note.tags?.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {note.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${tagColorClasses(tag)}`}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {note.image_url && (
+                    <a href={note.image_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block">
+                      <img src={note.image_url} alt="" className="max-h-[200px] rounded-lg border border-slate-200" />
+                    </a>
+                  )}
+                  <p className="mt-1 text-xs text-slate-400">{new Date(note.created_at).toLocaleString()}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
 
@@ -780,6 +929,72 @@ function App() {
               >
                 {deletingId === confirmDeleteId && <Spinner className="h-3.5 w-3.5" />}
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {shareModalNote && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+          onClick={handleShareClose}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="mb-3 text-sm font-semibold text-slate-800">Share note</h2>
+
+            {shareModalNote.note_shares?.length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-1.5">
+                {shareModalNote.note_shares.map((share) => (
+                  <span
+                    key={share.id}
+                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
+                  >
+                    {share.shared_with_email}
+                    <button
+                      type="button"
+                      onClick={() => handleRevokeShare(share.id, shareModalNote.id)}
+                      disabled={revokingShareId === share.id}
+                      aria-label={`Revoke access for ${share.shared_with_email}`}
+                      className="hover:opacity-70 disabled:opacity-50"
+                    >
+                      {revokingShareId === share.id ? <Spinner className="h-3 w-3" /> : <>&times;</>}
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={shareEmail}
+                onChange={(e) => setShareEmail(e.target.value)}
+                onKeyDown={handleShareKeyDown}
+                placeholder="Enter email address"
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              />
+              <button
+                onClick={handleShareSubmit}
+                disabled={sharing || !shareEmail.trim()}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {sharing && <Spinner className="h-3.5 w-3.5" />}
+                Share
+              </button>
+            </div>
+
+            {shareError && <p className="mt-2 text-sm text-red-600">{shareError}</p>}
+
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={handleShareClose}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>
