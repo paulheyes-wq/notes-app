@@ -58,6 +58,78 @@ function MarkdownSplitEditor({ value, onChange, onKeyDown, placeholder, rows, te
   )
 }
 
+const TAG_COLORS = [
+  'bg-emerald-100 text-emerald-700',
+  'bg-blue-100 text-blue-700',
+  'bg-amber-100 text-amber-700',
+  'bg-rose-100 text-rose-700',
+  'bg-purple-100 text-purple-700',
+  'bg-cyan-100 text-cyan-700',
+  'bg-pink-100 text-pink-700',
+  'bg-lime-100 text-lime-700',
+]
+
+function tagColorClasses(tag) {
+  let hash = 0
+  for (let i = 0; i < tag.length; i++) {
+    hash = (hash * 31 + tag.charCodeAt(i)) | 0
+  }
+  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length]
+}
+
+function TagInput({ tags, onChange, placeholder = 'Add a tag...' }) {
+  const [inputValue, setInputValue] = useState('')
+
+  function addTag(raw) {
+    const tag = raw.trim()
+    if (!tag || tags.includes(tag)) {
+      setInputValue('')
+      return
+    }
+    onChange([...tags, tag])
+    setInputValue('')
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addTag(inputValue)
+    } else if (e.key === 'Backspace' && inputValue === '' && tags.length > 0) {
+      onChange(tags.slice(0, -1))
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-300 px-2 py-1.5 focus-within:ring-2 focus-within:ring-emerald-400">
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${tagColorClasses(tag)}`}
+        >
+          {tag}
+          <button
+            type="button"
+            onClick={() => onChange(tags.filter((t) => t !== tag))}
+            aria-label={`Remove tag ${tag}`}
+            className="hover:opacity-70"
+          >
+            &times;
+          </button>
+        </span>
+      ))}
+      <input
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => addTag(inputValue)}
+        placeholder={tags.length === 0 ? placeholder : ''}
+        className="min-w-[6rem] flex-1 border-none p-0.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-0"
+      />
+    </div>
+  )
+}
+
 function Spinner({ className = 'h-4 w-4' }) {
   return (
     <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" fill="none">
@@ -100,9 +172,12 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [tags, setTags] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedTag, setSelectedTag] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [editContent, setEditContent] = useState('')
+  const [editTags, setEditTags] = useState([])
   const [editSaving, setEditSaving] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -179,7 +254,7 @@ function App() {
     setLoading(true)
     const { data, error } = await supabase
       .from('notes')
-      .select('id, content, created_at')
+      .select('id, content, tags, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
 
@@ -200,12 +275,13 @@ function App() {
     const { data: { user } } = await supabase.auth.getUser()
     const { error } = await supabase
       .from('notes')
-      .insert({ content: trimmed, user_id: user.id })
+      .insert({ content: trimmed, user_id: user.id, tags })
 
     if (error) {
       setError(error.message)
     } else {
       setContent('')
+      setTags([])
       setError(null)
       await fetchNotes(session.user.id)
       showToast('Note saved')
@@ -233,11 +309,13 @@ function App() {
   function handleEditStart(note) {
     setEditingId(note.id)
     setEditContent(note.content)
+    setEditTags(note.tags || [])
   }
 
   function handleEditCancel() {
     setEditingId(null)
     setEditContent('')
+    setEditTags([])
   }
 
   async function handleEditSave(id) {
@@ -245,15 +323,16 @@ function App() {
     if (!trimmed) return
 
     setEditSaving(true)
-    const { error } = await supabase.from('notes').update({ content: trimmed }).eq('id', id)
+    const { error } = await supabase.from('notes').update({ content: trimmed, tags: editTags }).eq('id', id)
 
     if (error) {
       setError(error.message)
     } else {
       setError(null)
-      setNotes((prev) => prev.map((note) => (note.id === id ? { ...note, content: trimmed } : note)))
+      setNotes((prev) => prev.map((note) => (note.id === id ? { ...note, content: trimmed, tags: editTags } : note)))
       setEditingId(null)
       setEditContent('')
+      setEditTags([])
       showToast('Note updated')
     }
     setEditSaving(false)
@@ -313,9 +392,11 @@ function App() {
 
   const displayName = session.user.user_metadata?.full_name || session.user.email
   const trimmedQuery = searchQuery.trim().toLowerCase()
-  const filteredNotes = trimmedQuery
-    ? notes.filter((note) => note.content.toLowerCase().includes(trimmedQuery))
-    : notes
+  const allTags = [...new Set(notes.flatMap((note) => note.tags || []))].sort()
+  const filteredNotes = notes
+    .filter((note) => !trimmedQuery || note.content.toLowerCase().includes(trimmedQuery))
+    .filter((note) => !selectedTag || (note.tags || []).includes(selectedTag))
+  const hasActiveFilter = Boolean(trimmedQuery || selectedTag)
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-start justify-center py-16 px-4">
@@ -344,6 +425,9 @@ function App() {
             rows={3}
             textareaRef={textareaRef}
           />
+          <div className="mt-3">
+            <TagInput tags={tags} onChange={setTags} placeholder="Add tags (press Enter or comma)" />
+          </div>
           <div className="mt-2 flex justify-end">
             <button
               onClick={handleSave}
@@ -372,6 +456,24 @@ function App() {
           </div>
         )}
 
+        {!loading && allTags.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-1.5">
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => setSelectedTag((prev) => (prev === tag ? null : tag))}
+                className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                  selectedTag === tag
+                    ? 'bg-emerald-500 text-white'
+                    : `${tagColorClasses(tag)} hover:opacity-80`
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-6 text-sm text-slate-400">
             <Spinner className="h-4 w-4" />
@@ -383,7 +485,9 @@ function App() {
             <p className="mt-3 text-sm text-slate-400">No notes yet — write your first one above.</p>
           </div>
         ) : filteredNotes.length === 0 ? (
-          <p className="py-6 text-center text-sm text-slate-400">No notes match your search.</p>
+          <p className="py-6 text-center text-sm text-slate-400">
+            {hasActiveFilter ? 'No notes match your filters.' : 'No notes yet.'}
+          </p>
         ) : (
           <ul className="space-y-3">
             {filteredNotes.map((note) => (
@@ -402,6 +506,9 @@ function App() {
                       autoFocus
                       textareaClassName="text-sm px-2 py-1.5"
                     />
+                    <div className="mt-2">
+                      <TagInput tags={editTags} onChange={setEditTags} placeholder="Add tags" />
+                    </div>
                     <div className="mt-2 flex justify-end gap-3">
                       <button
                         onClick={handleEditCancel}
@@ -424,6 +531,18 @@ function App() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1 break-words">
                         <Markdown>{note.content}</Markdown>
+                        {note.tags?.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {note.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${tagColorClasses(tag)}`}
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <button
