@@ -168,6 +168,47 @@ function PinIcon({ className = 'h-4 w-4', filled = false }) {
   )
 }
 
+function ImageAttachment({ imageUrl, uploading, onSelectFile, onRemove, inputId }) {
+  return (
+    <div className="mt-3">
+      {imageUrl ? (
+        <div className="relative inline-block">
+          <img src={imageUrl} alt="" className="max-h-32 rounded-lg border border-slate-200" />
+          {uploading && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/60">
+              <Spinner className="h-5 w-5 text-slate-500" />
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label="Remove image"
+            className="absolute -right-2 -top-2 rounded-full bg-slate-800 p-1 text-xs text-white hover:bg-slate-900"
+          >
+            &times;
+          </button>
+        </div>
+      ) : (
+        <label
+          htmlFor={inputId}
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+        >
+          {uploading && <Spinner className="h-4 w-4" />}
+          {uploading ? 'Uploading...' : 'Add image'}
+        </label>
+      )}
+      <input
+        id={inputId}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        onChange={onSelectFile}
+        disabled={uploading}
+        className="hidden"
+      />
+    </div>
+  )
+}
+
 function EmptyNotesIcon() {
   return (
     <svg className="mx-auto h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
@@ -190,6 +231,8 @@ function App() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [tags, setTags] = useState([])
+  const [imageUrl, setImageUrl] = useState(null)
+  const [imageUploading, setImageUploading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTag, setSelectedTag] = useState(null)
   const [sortOption, setSortOption] = useState('newest')
@@ -197,6 +240,8 @@ function App() {
   const [editingId, setEditingId] = useState(null)
   const [editContent, setEditContent] = useState('')
   const [editTags, setEditTags] = useState([])
+  const [editImageUrl, setEditImageUrl] = useState(null)
+  const [editImageUploading, setEditImageUploading] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -253,6 +298,45 @@ function App() {
     toastTimeoutRef.current = setTimeout(() => setToast(null), 2500)
   }
 
+  async function uploadImage(file) {
+    const { data: { user } } = await supabase.auth.getUser()
+    const path = `${user.id}/${Date.now()}-${file.name}`
+    const { error: uploadError } = await supabase.storage.from('notes-images').upload(path, file)
+    if (uploadError) throw uploadError
+    const { data } = supabase.storage.from('notes-images').getPublicUrl(path)
+    return data.publicUrl
+  }
+
+  async function handleImageSelect(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    setImageUploading(true)
+    try {
+      setImageUrl(await uploadImage(file))
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+    }
+    setImageUploading(false)
+  }
+
+  async function handleEditImageSelect(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    setEditImageUploading(true)
+    try {
+      setEditImageUrl(await uploadImage(file))
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+    }
+    setEditImageUploading(false)
+  }
+
   async function handleSignInWithGoogle() {
     setError(null)
     const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' })
@@ -273,7 +357,7 @@ function App() {
     setLoading(true)
     const { data, error } = await supabase
       .from('notes')
-      .select('id, content, tags, pinned, created_at')
+      .select('id, content, tags, pinned, image_url, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
 
@@ -294,13 +378,14 @@ function App() {
     const { data: { user } } = await supabase.auth.getUser()
     const { error } = await supabase
       .from('notes')
-      .insert({ content: trimmed, user_id: user.id, tags })
+      .insert({ content: trimmed, user_id: user.id, tags, image_url: imageUrl })
 
     if (error) {
       setError(error.message)
     } else {
       setContent('')
       setTags([])
+      setImageUrl(null)
       setError(null)
       await fetchNotes(session.user.id)
       showToast('Note saved')
@@ -342,12 +427,14 @@ function App() {
     setEditingId(note.id)
     setEditContent(note.content)
     setEditTags(note.tags || [])
+    setEditImageUrl(note.image_url || null)
   }
 
   function handleEditCancel() {
     setEditingId(null)
     setEditContent('')
     setEditTags([])
+    setEditImageUrl(null)
   }
 
   async function handleEditSave(id) {
@@ -355,16 +442,22 @@ function App() {
     if (!trimmed) return
 
     setEditSaving(true)
-    const { error } = await supabase.from('notes').update({ content: trimmed, tags: editTags }).eq('id', id)
+    const { error } = await supabase
+      .from('notes')
+      .update({ content: trimmed, tags: editTags, image_url: editImageUrl })
+      .eq('id', id)
 
     if (error) {
       setError(error.message)
     } else {
       setError(null)
-      setNotes((prev) => prev.map((note) => (note.id === id ? { ...note, content: trimmed, tags: editTags } : note)))
+      setNotes((prev) =>
+        prev.map((note) => (note.id === id ? { ...note, content: trimmed, tags: editTags, image_url: editImageUrl } : note))
+      )
       setEditingId(null)
       setEditContent('')
       setEditTags([])
+      setEditImageUrl(null)
       showToast('Note updated')
     }
     setEditSaving(false)
@@ -477,10 +570,17 @@ function App() {
           <div className="mt-3">
             <TagInput tags={tags} onChange={setTags} placeholder="Add tags (press Enter or comma)" />
           </div>
+          <ImageAttachment
+            imageUrl={imageUrl}
+            uploading={imageUploading}
+            onSelectFile={handleImageSelect}
+            onRemove={() => setImageUrl(null)}
+            inputId="new-note-image"
+          />
           <div className="mt-2 flex justify-end">
             <button
               onClick={handleSave}
-              disabled={saving || !content.trim()}
+              disabled={saving || imageUploading || !content.trim()}
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 font-medium text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {saving && <Spinner className="h-4 w-4" />}
@@ -567,6 +667,13 @@ function App() {
                     <div className="mt-2">
                       <TagInput tags={editTags} onChange={setEditTags} placeholder="Add tags" />
                     </div>
+                    <ImageAttachment
+                      imageUrl={editImageUrl}
+                      uploading={editImageUploading}
+                      onSelectFile={handleEditImageSelect}
+                      onRemove={() => setEditImageUrl(null)}
+                      inputId={`edit-note-image-${note.id}`}
+                    />
                     <div className="mt-2 flex justify-end gap-3">
                       <button
                         onClick={handleEditCancel}
@@ -576,7 +683,7 @@ function App() {
                       </button>
                       <button
                         onClick={() => handleEditSave(note.id)}
-                        disabled={editSaving || !editContent.trim()}
+                        disabled={editSaving || editImageUploading || !editContent.trim()}
                         className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         {editSaving && <Spinner className="h-3 w-3" />}
@@ -600,6 +707,15 @@ function App() {
                               </span>
                             ))}
                           </div>
+                        )}
+                        {note.image_url && (
+                          <a href={note.image_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block">
+                            <img
+                              src={note.image_url}
+                              alt=""
+                              className="max-h-[200px] rounded-lg border border-slate-200"
+                            />
+                          </a>
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
