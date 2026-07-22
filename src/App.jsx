@@ -1,5 +1,62 @@
 import { useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import remarkBreaks from 'remark-breaks'
+import rehypeSanitize from 'rehype-sanitize'
 import { supabase } from './supabaseClient'
+
+const markdownComponents = {
+  h1: (props) => <h1 className="mb-1 mt-2 text-lg font-semibold text-slate-800 first:mt-0" {...props} />,
+  h2: (props) => <h2 className="mb-1 mt-2 text-base font-semibold text-slate-800 first:mt-0" {...props} />,
+  h3: (props) => <h3 className="mb-1 mt-2 text-sm font-semibold text-slate-800 first:mt-0" {...props} />,
+  p: (props) => <p className="mb-1 text-slate-800 last:mb-0" {...props} />,
+  ul: (props) => <ul className="mb-1 list-disc space-y-0.5 pl-5 last:mb-0" {...props} />,
+  ol: (props) => <ol className="mb-1 list-decimal space-y-0.5 pl-5 last:mb-0" {...props} />,
+  li: (props) => <li className="text-slate-800" {...props} />,
+  blockquote: (props) => (
+    <blockquote className="mb-1 border-l-2 border-slate-300 pl-3 italic text-slate-500 last:mb-0" {...props} />
+  ),
+  strong: (props) => <strong className="font-semibold text-slate-900" {...props} />,
+  em: (props) => <em className="italic" {...props} />,
+  code: (props) => <code className="rounded bg-slate-200 px-1 py-0.5 text-xs" {...props} />,
+  a: (props) => (
+    <a className="text-emerald-600 underline hover:text-emerald-700" target="_blank" rel="noopener noreferrer" {...props} />
+  ),
+}
+
+function Markdown({ children }) {
+  return (
+    <div className="text-sm leading-normal">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkBreaks]}
+        rehypePlugins={[rehypeSanitize]}
+        components={markdownComponents}
+      >
+        {children}
+      </ReactMarkdown>
+    </div>
+  )
+}
+
+function MarkdownSplitEditor({ value, onChange, onKeyDown, placeholder, rows, textareaRef, autoFocus, textareaClassName = '' }) {
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        placeholder={placeholder}
+        rows={rows}
+        autoFocus={autoFocus}
+        className={`w-full min-h-[4.5rem] resize-none overflow-hidden rounded-lg border border-slate-300 px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 ${textareaClassName}`}
+      />
+      <div className="min-h-[4.5rem] overflow-auto rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+        {value.trim() ? <Markdown>{value}</Markdown> : <p className="text-sm text-slate-400">Preview</p>}
+      </div>
+    </div>
+  )
+}
 
 function Spinner({ className = 'h-4 w-4' }) {
   return (
@@ -262,7 +319,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-start justify-center py-16 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-6">
+      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-md p-6">
         <div className="flex items-start justify-between gap-3 mb-6">
           <h1 className="text-2xl font-semibold text-slate-800">Notes</h1>
           <div className="text-right">
@@ -279,14 +336,13 @@ function App() {
         </div>
 
         <div className="mb-6">
-          <textarea
-            ref={textareaRef}
+          <MarkdownSplitEditor
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Write a note... (Ctrl+Enter to save)"
+            placeholder="Write a note in Markdown... (Ctrl+Enter to save)"
             rows={3}
-            className="w-full resize-none overflow-hidden rounded-lg border border-slate-300 px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            textareaRef={textareaRef}
           />
           <div className="mt-2 flex justify-end">
             <button
@@ -337,14 +393,14 @@ function App() {
               >
                 {editingId === note.id ? (
                   <div>
-                    <textarea
-                      ref={editTextareaRef}
+                    <MarkdownSplitEditor
                       value={editContent}
                       onChange={(e) => setEditContent(e.target.value)}
                       onKeyDown={(e) => handleEditKeyDown(e, note.id)}
                       rows={2}
+                      textareaRef={editTextareaRef}
                       autoFocus
-                      className="w-full resize-none overflow-hidden rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                      textareaClassName="text-sm px-2 py-1.5"
                     />
                     <div className="mt-2 flex justify-end gap-3">
                       <button
@@ -366,9 +422,9 @@ function App() {
                 ) : (
                   <>
                     <div className="flex items-start justify-between gap-3">
-                      <p className="text-slate-800 whitespace-pre-wrap break-words">
-                        {note.content}
-                      </p>
+                      <div className="min-w-0 flex-1 break-words">
+                        <Markdown>{note.content}</Markdown>
+                      </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <button
                           onClick={() => handleEditStart(note)}
