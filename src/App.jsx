@@ -151,6 +151,23 @@ function PencilIcon({ className = 'h-4 w-4' }) {
   )
 }
 
+function PinIcon({ className = 'h-4 w-4', filled = false }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
+      />
+    </svg>
+  )
+}
+
 function EmptyNotesIcon() {
   return (
     <svg className="mx-auto h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
@@ -175,6 +192,8 @@ function App() {
   const [tags, setTags] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTag, setSelectedTag] = useState(null)
+  const [sortOption, setSortOption] = useState('newest')
+  const [pinningId, setPinningId] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [editContent, setEditContent] = useState('')
   const [editTags, setEditTags] = useState([])
@@ -254,7 +273,7 @@ function App() {
     setLoading(true)
     const { data, error } = await supabase
       .from('notes')
-      .select('id, content, tags, created_at')
+      .select('id, content, tags, pinned, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
 
@@ -304,6 +323,19 @@ function App() {
     }
     setDeletingId(null)
     setConfirmDeleteId(null)
+  }
+
+  async function handleTogglePin(note) {
+    setPinningId(note.id)
+    const { error } = await supabase.from('notes').update({ pinned: !note.pinned }).eq('id', note.id)
+
+    if (error) {
+      setError(error.message)
+    } else {
+      setError(null)
+      setNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, pinned: !n.pinned } : n)))
+    }
+    setPinningId(null)
   }
 
   function handleEditStart(note) {
@@ -398,6 +430,23 @@ function App() {
     .filter((note) => !selectedTag || (note.tags || []).includes(selectedTag))
   const hasActiveFilter = Boolean(trimmedQuery || selectedTag)
 
+  function sortGroup(group) {
+    const sorted = [...group]
+    if (sortOption === 'oldest') {
+      sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    } else if (sortOption === 'alpha') {
+      sorted.sort((a, b) => a.content.localeCompare(b.content))
+    } else {
+      sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    }
+    return sorted
+  }
+
+  const orderedNotes = [
+    ...sortGroup(filteredNotes.filter((note) => note.pinned)),
+    ...sortGroup(filteredNotes.filter((note) => !note.pinned)),
+  ]
+
   return (
     <div className="min-h-screen bg-slate-100 flex items-start justify-center py-16 px-4">
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-md p-6">
@@ -445,14 +494,23 @@ function App() {
         )}
 
         {!loading && notes.length > 0 && (
-          <div className="mb-4">
+          <div className="mb-4 flex gap-2">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search notes..."
-              className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
+            <select
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value)}
+              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="alpha">Alphabetical</option>
+            </select>
           </div>
         )}
 
@@ -490,7 +548,7 @@ function App() {
           </p>
         ) : (
           <ul className="space-y-3">
-            {filteredNotes.map((note) => (
+            {orderedNotes.map((note) => (
               <li
                 key={note.id}
                 className="rounded-lg border border-slate-200 px-3 py-2"
@@ -545,6 +603,16 @@ function App() {
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          onClick={() => handleTogglePin(note)}
+                          disabled={pinningId === note.id}
+                          aria-label={note.pinned ? 'Unpin note' : 'Pin note'}
+                          className={`disabled:opacity-50 transition-colors ${
+                            note.pinned ? 'text-amber-500 hover:text-amber-600' : 'text-slate-400 hover:text-slate-600'
+                          }`}
+                        >
+                          {pinningId === note.id ? <Spinner className="h-4 w-4" /> : <PinIcon className="h-4 w-4" filled={note.pinned} />}
+                        </button>
                         <button
                           onClick={() => handleEditStart(note)}
                           aria-label="Edit note"
