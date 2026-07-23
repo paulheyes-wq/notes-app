@@ -176,7 +176,7 @@ function PinIcon({ className = 'h-4 w-4', filled = false }) {
   )
 }
 
-function ImageAttachment({ imageUrl, uploading, onSelectFile, onRemove, inputId }) {
+function ImageAttachment({ imageUrl, uploading, onSelectFile, onRemove, inputId, disabled = false }) {
   return (
     <div className="mt-3">
       {imageUrl ? (
@@ -190,8 +190,9 @@ function ImageAttachment({ imageUrl, uploading, onSelectFile, onRemove, inputId 
           <button
             type="button"
             onClick={onRemove}
+            disabled={disabled}
             aria-label="Remove image"
-            className="absolute -right-2 -top-2 rounded-full bg-slate-800 p-1 text-xs text-white hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600"
+            className="absolute -right-2 -top-2 rounded-full bg-slate-800 p-1 text-xs text-white hover:bg-slate-900 disabled:opacity-50 dark:bg-slate-700 dark:hover:bg-slate-600"
           >
             &times;
           </button>
@@ -199,7 +200,9 @@ function ImageAttachment({ imageUrl, uploading, onSelectFile, onRemove, inputId 
       ) : (
         <label
           htmlFor={inputId}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+          className={`inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 dark:border-slate-600 dark:text-slate-300 ${
+            disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700'
+          }`}
         >
           {uploading && <Spinner className="h-4 w-4" />}
           {uploading ? 'Uploading...' : 'Add image'}
@@ -210,7 +213,7 @@ function ImageAttachment({ imageUrl, uploading, onSelectFile, onRemove, inputId 
         type="file"
         accept="image/jpeg,image/png,image/gif,image/webp"
         onChange={onSelectFile}
-        disabled={uploading}
+        disabled={uploading || disabled}
         className="hidden"
       />
     </div>
@@ -284,8 +287,30 @@ function getInitialTheme() {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
+function notesCacheKey(userId) {
+  return `notes-cache-${userId}`
+}
+
+function cacheNotes(userId, notesToCache) {
+  try {
+    localStorage.setItem(notesCacheKey(userId), JSON.stringify(notesToCache))
+  } catch {
+    // best-effort cache; ignore storage errors (e.g. quota exceeded)
+  }
+}
+
+function loadCachedNotes(userId) {
+  try {
+    const raw = localStorage.getItem(notesCacheKey(userId))
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 function App() {
   const [theme, setTheme] = useState(getInitialTheme)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [notes, setNotes] = useState([])
@@ -317,6 +342,7 @@ function App() {
   const textareaRef = useRef(null)
   const editTextareaRef = useRef(null)
   const toastTimeoutRef = useRef(null)
+  const wasOfflineRef = useRef(false)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -354,7 +380,32 @@ function App() {
     if (session) {
       fetchNotes()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
+
+  useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true)
+    }
+    function handleOffline() {
+      setIsOnline(false)
+      wasOfflineRef.current = true
+    }
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isOnline && wasOfflineRef.current && session) {
+      wasOfflineRef.current = false
+      fetchNotes()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline, session])
 
   useEffect(() => {
     if (confirmDeleteId === null) return
@@ -431,15 +482,32 @@ function App() {
 
   async function handleSignOut() {
     setError(null)
+    const userId = session?.user?.id
     const { error } = await supabase.auth.signOut()
     if (error) {
       setError(error.message)
     } else {
       setNotes([])
+      if (userId) {
+        try {
+          localStorage.removeItem(notesCacheKey(userId))
+        } catch {
+          // ignore
+        }
+      }
     }
   }
 
   async function fetchNotes() {
+    const userId = session.user.id
+
+    if (!navigator.onLine) {
+      setNotes(loadCachedNotes(userId) || [])
+      setError(null)
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     const { data, error } = await supabase
       .from('notes')
@@ -447,10 +515,17 @@ function App() {
       .order('created_at', { ascending: false })
 
     if (error) {
-      setError(error.message)
+      const cached = loadCachedNotes(userId)
+      if (cached) {
+        setNotes(cached)
+        setError(null)
+      } else {
+        setError(error.message)
+      }
     } else {
       setNotes(data)
       setError(null)
+      cacheNotes(userId, data)
     }
     setLoading(false)
   }
@@ -727,6 +802,12 @@ function App() {
           </div>
         </div>
 
+        {!isOnline && (
+          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+            You&apos;re offline — showing cached notes. Changes won&apos;t save until you&apos;re back online.
+          </div>
+        )}
+
         <div className="mb-6">
           <MarkdownSplitEditor
             value={content}
@@ -745,11 +826,12 @@ function App() {
             onSelectFile={handleImageSelect}
             onRemove={() => setImageUrl(null)}
             inputId="new-note-image"
+            disabled={!isOnline}
           />
           <div className="mt-2 flex justify-end">
             <button
               onClick={handleSave}
-              disabled={saving || imageUploading || !content.trim()}
+              disabled={saving || imageUploading || !content.trim() || !isOnline}
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 font-medium text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {saving && <Spinner className="h-4 w-4" />}
@@ -842,6 +924,7 @@ function App() {
                       onSelectFile={handleEditImageSelect}
                       onRemove={() => setEditImageUrl(null)}
                       inputId={`edit-note-image-${note.id}`}
+                      disabled={!isOnline}
                     />
                     <div className="mt-2 flex justify-end gap-3">
                       <button
@@ -852,7 +935,7 @@ function App() {
                       </button>
                       <button
                         onClick={() => handleEditSave(note.id)}
-                        disabled={editSaving || editImageUploading || !editContent.trim()}
+                        disabled={editSaving || editImageUploading || !editContent.trim() || !isOnline}
                         className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         {editSaving && <Spinner className="h-3 w-3" />}
@@ -890,16 +973,19 @@ function App() {
                       <div className="flex shrink-0 items-center gap-2">
                         <button
                           onClick={() => handleShareOpen(note)}
+                          disabled={!isOnline}
                           aria-label="Share note"
-                          className="text-slate-400 hover:text-slate-600 transition-colors dark:text-slate-500 dark:hover:text-slate-300"
+                          title={!isOnline ? "You're offline" : undefined}
+                          className="text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed dark:text-slate-500 dark:hover:text-slate-300"
                         >
                           <ShareIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleTogglePin(note)}
-                          disabled={pinningId === note.id}
+                          disabled={pinningId === note.id || !isOnline}
                           aria-label={note.pinned ? 'Unpin note' : 'Pin note'}
-                          className={`disabled:opacity-50 transition-colors ${
+                          title={!isOnline ? "You're offline" : undefined}
+                          className={`disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${
                             note.pinned
                               ? 'text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300'
                               : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
@@ -909,15 +995,19 @@ function App() {
                         </button>
                         <button
                           onClick={() => handleEditStart(note)}
+                          disabled={!isOnline}
                           aria-label="Edit note"
-                          className="text-slate-400 hover:text-slate-600 transition-colors dark:text-slate-500 dark:hover:text-slate-300"
+                          title={!isOnline ? "You're offline" : undefined}
+                          className="text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed dark:text-slate-500 dark:hover:text-slate-300"
                         >
                           <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setConfirmDeleteId(note.id)}
+                          disabled={!isOnline}
                           aria-label="Delete note"
-                          className="text-xs font-medium text-red-500 hover:text-red-600 transition-colors dark:text-red-400 dark:hover:text-red-300"
+                          title={!isOnline ? "You're offline" : undefined}
+                          className="text-xs font-medium text-red-500 hover:text-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed dark:text-red-400 dark:hover:text-red-300"
                         >
                           Delete
                         </button>
@@ -998,7 +1088,7 @@ function App() {
               </button>
               <button
                 onClick={handleDeleteConfirmed}
-                disabled={deletingId === confirmDeleteId}
+                disabled={deletingId === confirmDeleteId || !isOnline}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
               >
                 {deletingId === confirmDeleteId && <Spinner className="h-3.5 w-3.5" />}
@@ -1031,7 +1121,7 @@ function App() {
                     <button
                       type="button"
                       onClick={() => handleRevokeShare(share.id, shareModalNote.id)}
-                      disabled={revokingShareId === share.id}
+                      disabled={revokingShareId === share.id || !isOnline}
                       aria-label={`Revoke access for ${share.shared_with_email}`}
                       className="hover:opacity-70 disabled:opacity-50"
                     >
@@ -1053,7 +1143,7 @@ function App() {
               />
               <button
                 onClick={handleShareSubmit}
-                disabled={sharing || !shareEmail.trim()}
+                disabled={sharing || !shareEmail.trim() || !isOnline}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {sharing && <Spinner className="h-3.5 w-3.5" />}
